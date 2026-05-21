@@ -14,25 +14,37 @@ export default function Register() {
     document.title = 'Create Account | AntiSocial';
   }, []);
 
-  const submit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    const { username, email, password } = form;
+    console.log('API URL being used:', 
+      import.meta.env.VITE_API_URL);
+    console.log('Attempting register with:', 
+      { username, email });
     try {
-      const res = await API.post("/auth/register", form);
-      dispatch({ type: "LOGIN", payload: res.data });
-      toast.success("Account created successfully!");
-      navigate("/");
+      const res = await API.post(
+        '/auth/register', 
+        { username, email, password }
+      );
+      console.log('Register success:', res.data);
+      dispatch({ type: 'LOGIN', payload: res.data });
+      toast.success('Welcome to AntiSocial! 🎉');
+      navigate('/');
     } catch (err) {
-      console.error('Register error:', err);
-      const message = err.response?.data?.message || 
-                      err.response?.data || 
-                      err.message ||
-                      'Registration failed';
-      toast.error(message);
+      console.error('Full error:', err);
+      console.error('Response:', err.response);
+      console.error('Status:', err.response?.status);
+      console.error('Data:', err.response?.data);
+      toast.error(
+        err.response?.data?.message || 
+        'Registration failed'
+      );
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="grid min-h-screen animate-fade-in grid-cols-1 md:grid-cols-2">
@@ -50,7 +62,7 @@ export default function Register() {
       <section className="flex items-center justify-center bg-dark-950 p-6">
         <div className="card w-full max-w-md p-8 shadow-glow-sm">
           <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Create account</h2>
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <input
               required
               placeholder="Username"
