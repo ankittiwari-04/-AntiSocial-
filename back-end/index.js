@@ -24,20 +24,40 @@ const server = http.createServer(app);
 const allowedOrigins = [
   'http://localhost:5173',
   'https://anti-social-lime.vercel.app',
-  'https://anti-social-ankittiwari04.vercel.app',
-  process.env.CLIENT_URL
-].filter(Boolean);
+  process.env.CLIENT_URL,
+];
 
-app.use(cors({
-  origin: allowedOrigins,
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl)
+    if (!origin) return callback(null, true);
+    
+    // Allow all vercel.app preview URLs
+    if (origin.includes('vercel.app') || 
+        origin.includes('localhost') ||
+        allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-}));
+};
+
+app.use(cors(corsOptions));
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (origin.includes('vercel.app') || 
+          origin.includes('localhost')) {
+        return callback(null, true);
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }
