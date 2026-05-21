@@ -23,7 +23,12 @@ export default function Register() {
       toast.success("Account created successfully!");
       navigate("/");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Registration failed");
+      console.error('Register error:', err);
+      const message = err.response?.data?.message || 
+                      err.response?.data || 
+                      err.message ||
+                      'Registration failed';
+      toast.error(message);
     } finally {
       setLoading(false);
     }

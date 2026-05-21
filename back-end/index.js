@@ -23,6 +23,7 @@ const server = http.createServer(app);
 
 const allowedOrigins = [
   'http://localhost:5173',
+  'https://anti-social-lime.vercel.app',
   'https://anti-social-ankittiwari04.vercel.app',
   process.env.CLIENT_URL
 ].filter(Boolean);
@@ -57,6 +58,20 @@ app.use('/api/payments', paymentRoutes);
 socketHandler(io);
 
 app.get('/', (req, res) => res.json({ status: 'AntiSocial API running' }));
+
+app.get('/test-db', async (req, res) => {
+  try {
+    const result = await db.execute(
+      sql`SELECT COUNT(*) FROM users`
+    );
+    res.json({ 
+      success: true, 
+      userCount: result.rows[0].count 
+    });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
 
 try {
   await db.execute(sql`SELECT 1`);

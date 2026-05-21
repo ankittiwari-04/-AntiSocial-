@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { or, eq } from 'drizzle-orm';
@@ -8,6 +8,7 @@ import { users } from '../models/schema.js';
 const router = Router();
 
 router.post('/register', async (req, res) => {
+  console.log('Register attempt:', req.body);
   try {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields required' });
@@ -22,6 +23,7 @@ router.post('/register', async (req, res) => {
     const { password: _, ...userData } = saved;
     return res.status(201).json({ token, user: userData });
   } catch (err) {
+    console.error('Register route error:', err);
     return res.status(500).json({ message: err.message });
   }
 });
