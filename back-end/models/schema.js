@@ -1,4 +1,4 @@
-﻿import { pgTable, text, integer, boolean, timestamp, uuid, json } from 'drizzle-orm/pg-core';
+import { pgTable, text, integer, boolean, timestamp, uuid, json } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -12,6 +12,8 @@ export const users = pgTable('users', {
   isVerified: boolean('is_verified').default(false),
   isPremium: boolean('is_premium').default(false),
   walletBalance: integer('wallet_balance').default(0),
+  resetToken: text('reset_token'),
+  resetTokenExpiry: timestamp('reset_token_expiry'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

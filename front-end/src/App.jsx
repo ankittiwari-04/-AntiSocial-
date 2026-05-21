@@ -12,6 +12,8 @@ import Communities from "./pages/Communities";
 import CommunityDetail from "./pages/CommunityDetail";
 import Notifications from "./pages/Notifications";
 import LiveStream from "./pages/LiveStream";
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import NotFound from "./pages/NotFound";
 
 const Protected = ({ children }) => {
@@ -83,6 +85,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
         <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/" element={<Protected><AppLayout><Home /></AppLayout></Protected>} />
         <Route path="/profile/:id" element={<Protected><AppLayout><Profile /></AppLayout></Protected>} />
         <Route path="/explore" element={<Protected><AppLayout><Explore /></AppLayout></Protected>} />

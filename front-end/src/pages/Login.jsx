@@ -7,20 +7,21 @@ import { useAuth } from "../context/AuthContext";
 export default function Login() {
   const navigate = useNavigate();
   const { dispatch } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     document.title = 'Sign In | AntiSocial';
   }, []);
 
-  const submit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await API.post("/auth/login", form);
+      const res = await API.post("/auth/login", { identifier, password });
       dispatch({ type: "LOGIN", payload: res.data });
-      toast.success("Welcome back!");
+      toast.success("Welcome back! 👋");
       navigate("/");
     } catch (err) {
       toast.error(err.response?.data?.message || "Login failed");
@@ -45,23 +46,30 @@ export default function Login() {
       <section className="flex items-center justify-center bg-dark-950 p-6">
         <div className="card w-full max-w-md p-8 shadow-glow-sm">
           <h2 className="mb-6 text-2xl font-bold tracking-tight text-white">Welcome back</h2>
-          <form onSubmit={submit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <input
-              type="email"
-              required
-              placeholder="Email"
+              type="text"
+              placeholder="Email or username"
+              value={identifier}
+              onChange={e => setIdentifier(e.target.value)}
               className="input-field"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              required
             />
             <input
               type="password"
               required
               placeholder="Password"
               className="input-field"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
+            <div className="text-right">
+              <Link 
+                to="/forgot-password"
+                className="text-xs text-[#71717a] hover:text-brand-400 transition-all">
+                Forgot password?
+              </Link>
+            </div>
             <button type="submit" disabled={loading} className="btn-primary w-full">
               {loading ? "Signing in…" : "Sign in"}
             </button>
