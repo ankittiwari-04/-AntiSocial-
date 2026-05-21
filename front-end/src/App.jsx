@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import { useAuth } from "./context/AuthContext";
@@ -11,6 +12,7 @@ import Communities from "./pages/Communities";
 import CommunityDetail from "./pages/CommunityDetail";
 import Notifications from "./pages/Notifications";
 import LiveStream from "./pages/LiveStream";
+import NotFound from "./pages/NotFound";
 
 const Protected = ({ children }) => {
   const { user } = useAuth();
@@ -56,6 +58,25 @@ function AppLayout({ children }) {
 
 export default function App() {
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setTimeout(() => setLoading(false), 500);
+  }, []);
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#050508] flex items-center 
+                    justify-center">
+      <div className="text-center">
+        <h1 className="text-3xl font-bold gradient-text mb-3">
+          AntiSocial
+        </h1>
+        <div className="w-8 h-8 border-2 border-brand-500 
+                        border-t-transparent rounded-full 
+                        animate-spin mx-auto"/>
+      </div>
+    </div>
+  );
 
   return (
     <BrowserRouter>
@@ -71,6 +92,7 @@ export default function App() {
         <Route path="/communities/:id" element={<Protected><AppLayout><CommunityDetail /></AppLayout></Protected>} />
         <Route path="/notifications" element={<Protected><AppLayout><Notifications /></AppLayout></Protected>} />
         <Route path="/live" element={<Protected><AppLayout><LiveStream /></AppLayout></Protected>} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

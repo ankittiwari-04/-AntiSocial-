@@ -36,6 +36,7 @@ export default function Messages() {
   };
 
   useEffect(() => {
+    document.title = 'Messages | AntiSocial';
     loadInbox();
   }, []);
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 import API from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
@@ -30,11 +31,14 @@ export default function CreatePost({ onPost, communityId }) {
   const getAICaptions = async () => {
     if (!content.trim()) return;
     setAiLoading(true);
+    const loadToast = toast.loading("Generating AI captions...");
     try {
       const res = await API.post("/ai/caption", { topic: content, tone: "casual" });
       setCaptions(res.data.captions || []);
+      toast.success("AI Captions generated!", { id: loadToast });
     } catch (err) {
       console.error(err);
+      toast.error("Failed to generate AI captions", { id: loadToast });
     } finally {
       setAiLoading(false);
     }
@@ -43,6 +47,7 @@ export default function CreatePost({ onPost, communityId }) {
   const handleSubmit = async () => {
     if (!content.trim() && !media) return;
     setLoading(true);
+    const loadToast = toast.loading("Publishing post...");
     try {
       const form = new FormData();
       form.append("content", content);
@@ -58,8 +63,9 @@ export default function CreatePost({ onPost, communityId }) {
       if (preview) URL.revokeObjectURL(preview);
       setPreview("");
       if (fileRef.current) fileRef.current.value = "";
+      toast.success("Post published successfully!", { id: loadToast });
     } catch (err) {
-      window.alert(err.response?.data?.message || "Post failed");
+      toast.error(err.response?.data?.message || "Post failed", { id: loadToast });
     } finally {
       setLoading(false);
     }

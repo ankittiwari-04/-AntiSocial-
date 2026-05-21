@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import API from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
@@ -21,6 +22,7 @@ export default function Profile() {
   };
 
   useEffect(() => {
+    document.title = 'Profile | AntiSocial';
     load();
   }, [id]);
 
@@ -31,14 +33,23 @@ export default function Profile() {
   }, [posts, tab, uid]);
 
   const saveBio = async () => {
-    await API.put(`/users/${id}`, { bio });
-    setEditing(false);
-    await load();
+    try {
+      await API.put(`/users/${id}`, { bio });
+      setEditing(false);
+      toast.success("Bio updated successfully!");
+      await load();
+    } catch {
+      toast.error("Failed to update bio");
+    }
   };
 
   const followToggle = async () => {
-    await API.put(`/users/${id}/follow`);
-    await load();
+    try {
+      await API.put(`/users/${id}/follow`);
+      await load();
+    } catch {
+      toast.error("Failed to toggle follow status");
+    }
   };
 
   if (!profile) {
@@ -96,11 +107,17 @@ export default function Profile() {
             <p className="flex-1 text-sm leading-relaxed text-zinc-200">{bio || "No bio yet."}</p>
             {isSelf && (
               <button type="button" onClick={async () => {
+                const loadToast = toast.loading("Generating AI bio...");
                 try {
                   const res = await API.post("/ai/bio");
-                  if (res.data?.bio) setBio(res.data.bio);
+                  if (res.data?.bio) {
+                    setBio(res.data.bio);
+                    toast.success("AI Bio generated!", { id: loadToast });
+                  } else {
+                    toast.error("AI bio unavailable", { id: loadToast });
+                  }
                 } catch {
-                  window.alert("AI bio unavailable");
+                  toast.error("AI bio unavailable", { id: loadToast });
                 }
               }} className="btn-primary px-3 py-1.5 text-xs">
                 AI Bio

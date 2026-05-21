@@ -15,6 +15,7 @@ export default function Communities() {
   };
 
   useEffect(() => {
+    document.title = 'Communities | AntiSocial';
     load();
   }, []);
 

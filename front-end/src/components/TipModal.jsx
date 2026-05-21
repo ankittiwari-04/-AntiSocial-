@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import API from "../api/axios";
 
 export default function TipModal({ receiverId, receiverName, onClose }) {
@@ -7,6 +8,7 @@ export default function TipModal({ receiverId, receiverName, onClose }) {
 
   const handleTip = async () => {
     setLoading(true);
+    const loadToast = toast.loading("Initiating transaction...");
     try {
       const res = await API.post("/payments/tip", { receiverId, amount });
       const { orderId, keyId } = res.data;
@@ -18,18 +20,24 @@ export default function TipModal({ receiverId, receiverName, onClose }) {
         description: `Tip to @${receiverName}`,
         order_id: orderId,
         handler: async (response) => {
-          await API.post("/payments/verify", {
-            orderId: response.razorpay_order_id,
-            paymentId: response.razorpay_payment_id,
-            signature: response.razorpay_signature,
-          });
-          window.alert(`Sent ₹${amount} to @${receiverName}`);
-          onClose();
+          const verifyToast = toast.loading("Verifying transaction...");
+          try {
+            await API.post("/payments/verify", {
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            });
+            toast.success(`Sent ₹${amount} to @${receiverName}`, { id: verifyToast });
+            onClose();
+          } catch {
+            toast.error("Verification failed", { id: verifyToast });
+          }
         },
       });
+      toast.dismiss(loadToast);
       rzp.open();
     } catch {
-      window.alert("Payment failed");
+      toast.error("Payment failed", { id: loadToast });
     } finally {
       setLoading(false);
     }

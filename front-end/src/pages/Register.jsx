@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import API from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 
@@ -9,15 +10,20 @@ export default function Register() {
   const [form, setForm] = useState({ username: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    document.title = 'Create Account | AntiSocial';
+  }, []);
+
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
       const res = await API.post("/auth/register", form);
       dispatch({ type: "LOGIN", payload: res.data });
+      toast.success("Account created successfully!");
       navigate("/");
     } catch (err) {
-      window.alert(err.response?.data?.message || "Registration failed");
+      toast.error(err.response?.data?.message || "Registration failed");
     } finally {
       setLoading(false);
     }

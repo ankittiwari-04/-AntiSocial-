@@ -10,6 +10,7 @@ export default function Notifications() {
   };
 
   useEffect(() => {
+    document.title = 'Notifications | AntiSocial';
     load();
   }, []);
 

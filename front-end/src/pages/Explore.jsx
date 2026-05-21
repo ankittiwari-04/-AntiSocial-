@@ -10,6 +10,10 @@ export default function Explore() {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
+    document.title = 'Explore | AntiSocial';
+  }, []);
+
+  useEffect(() => {
     const load = async () => {
       const type = filter === "videos" ? "video" : undefined;
       const res = await API.get(`/posts/explore${type ? `?type=${type}` : ""}`);
