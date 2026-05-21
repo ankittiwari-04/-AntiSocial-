@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import API from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
@@ -58,9 +59,20 @@ export default function PostCard({ post, onUpdate }) {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("Delete this post?")) return;
-    await API.delete(`/posts/${post.id ?? post._id}`);
-    onUpdate?.();
+    const confirmed = window.confirm(
+      'Delete this post?'
+    );
+    if (!confirmed) return;
+    try {
+      await API.delete(`/posts/${post.id || post._id}`);
+      toast.success('Post deleted!');
+      onUpdate?.();
+    } catch (err) {
+      console.error('Delete error:', err);
+      toast.error(
+        err.response?.data?.message || 'Delete failed'
+      );
+    }
   };
 
   const pid = post.id ?? post._id;
@@ -87,8 +99,14 @@ export default function PostCard({ post, onUpdate }) {
             <p className="text-xs text-[#71717a]">{post.createdAt ? new Date(post.createdAt).toLocaleString() : ""}</p>
           </div>
         </Link>
-        {uid === aid && (
-          <button type="button" onClick={handleDelete} className="btn-ghost text-xs text-red-400 hover:text-red-300">
+        {(user?._id === post.userId || 
+          user?.id === post.userId ||
+          user?._id === post.userId?._id ||
+          user?.id === post.userId?.id) && (
+          <button 
+            onClick={handleDelete}
+            className="text-red-400 hover:text-red-300 
+                       text-sm transition-all">
             Delete
           </button>
         )}

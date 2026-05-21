@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { comments, follows, likes, notifications, posts, users } from '../models/schema.js';
@@ -119,13 +119,30 @@ router.post('/:id/comment', verifyToken, async (req, res) => {
 
 router.delete('/:id', verifyToken, async (req, res) => {
   try {
-    const found = await db.select().from(posts).where(eq(posts.id, req.params.id)).limit(1);
-    if (!found.length) return res.status(404).json({ message: 'Not found' });
-    if (found[0].userId !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
-    await db.delete(posts).where(eq(posts.id, req.params.id));
-    return res.json({ message: 'Post deleted' });
+    const [post] = await db.select()
+      .from(posts)
+      .where(eq(posts.id, req.params.id));
+    
+    if (!post) {
+      return res.status(404).json({ 
+        message: 'Post not found' 
+      });
+    }
+
+    // Compare as strings to avoid type mismatch
+    if (post.userId.toString() !== req.user.id.toString()) {
+      return res.status(403).json({ 
+        message: 'Not authorized to delete this post' 
+      });
+    }
+
+    await db.delete(posts)
+      .where(eq(posts.id, req.params.id));
+    
+    res.json({ message: 'Post deleted successfully' });
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    console.error('Delete error:', err);
+    res.status(500).json({ message: err.message });
   }
 });
 
