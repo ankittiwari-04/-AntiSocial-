@@ -59,18 +59,21 @@ export default function PostCard({ post, onUpdate }) {
   };
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(
-      'Delete this post?'
-    );
+    const confirmed = window.confirm('Delete this post?');
     if (!confirmed) return;
+    
+    const postId = post.id || post._id;
+    console.log('Deleting post with ID:', postId);
+    
     try {
-      await API.delete(`/posts/${post.id || post._id}`);
-      toast.success('Post deleted!');
+      const res = await API.delete(`/posts/${postId}`);
+      console.log('Delete response:', res.data);
+      toast.success('Post deleted! 🗑️');
       onUpdate?.();
     } catch (err) {
-      console.error('Delete error:', err);
+      console.error('Delete failed:', err.response?.data);
       toast.error(
-        err.response?.data?.message || 'Delete failed'
+        err.response?.data?.message || 'Failed to delete post'
       );
     }
   };

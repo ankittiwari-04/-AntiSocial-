@@ -119,9 +119,13 @@ router.post('/:id/comment', verifyToken, async (req, res) => {
 
 router.delete('/:id', verifyToken, async (req, res) => {
   try {
-    const [post] = await db.select()
+    const postId = req.params.id;
+    
+    // Find the post first
+    const [post] = await db
+      .select()
       .from(posts)
-      .where(eq(posts.id, req.params.id));
+      .where(eq(posts.id, postId));
     
     if (!post) {
       return res.status(404).json({ 
@@ -129,20 +133,37 @@ router.delete('/:id', verifyToken, async (req, res) => {
       });
     }
 
-    // Compare as strings to avoid type mismatch
-    if (post.userId.toString() !== req.user.id.toString()) {
+    // Check ownership - compare both as strings
+    const postUserId = String(post.userId);
+    const reqUserId = String(req.user.id);
+    
+    if (postUserId !== reqUserId) {
       return res.status(403).json({ 
         message: 'Not authorized to delete this post' 
       });
     }
 
-    await db.delete(posts)
-      .where(eq(posts.id, req.params.id));
+    // Also delete related likes and comments
+    await db.delete(likes)
+      .where(eq(likes.postId, postId));
     
-    res.json({ message: 'Post deleted successfully' });
+    await db.delete(comments)
+      .where(eq(comments.postId, postId));
+
+    // Delete the post
+    await db
+      .delete(posts)
+      .where(eq(posts.id, postId));
+
+    return res.status(200).json({ 
+      message: 'Post deleted successfully' 
+    });
+    
   } catch (err) {
-    console.error('Delete error:', err);
-    res.status(500).json({ message: err.message });
+    console.error('Delete post error:', err);
+    return res.status(500).json({ 
+      message: err.message 
+    });
   }
 });
 
