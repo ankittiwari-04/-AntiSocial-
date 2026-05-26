@@ -1,175 +1,508 @@
-import { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
-import toast from "react-hot-toast";
-import API from "../api/axios";
-import { useAuth } from "../context/AuthContext";
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import API from '../api/axios';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
+import PostCard from '../components/PostCard';
 
 export default function Profile() {
   const { id } = useParams();
-  const { user } = useAuth();
-  const uid = user?.id ?? user?._id;
+  const { user, dispatch } = useAuth();
+  const navigate = useNavigate();
+  const isOwn = user?.id === id || user?._id === id;
+
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
-  const [tab, setTab] = useState("posts");
+  const [activeTab, setActiveTab] = useState('posts');
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [bio, setBio] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [bio, setBio] = useState('');
+  const [website, setWebsite] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
 
-  const load = async () => {
-    const [uRes, pRes] = await Promise.all([API.get(`/users/${id}`), API.get(`/posts/user/${id}`)]);
-    setProfile(uRes.data);
-    setPosts(pRes.data || []);
-    setBio(uRes.data.bio || "");
-  };
+  const avatarRef = useRef();
+  const coverRef = useRef();
+
+  document.title = 'Profile | AntiSocial';
 
   useEffect(() => {
-    document.title = 'Profile | AntiSocial';
-    load();
+    fetchProfile();
+    fetchPosts();
   }, [id]);
 
-  const visiblePosts = useMemo(() => {
-    if (tab === "videos") return posts.filter((p) => p.mediaType === "video");
-    if (tab === "liked") return posts.filter((p) => (p.likes || []).includes(uid));
-    return posts;
-  }, [posts, tab, uid]);
-
-  const saveBio = async () => {
+  const fetchProfile = async () => {
     try {
-      await API.put(`/users/${id}`, { bio });
+      const res = await API.get(`/users/${id}`);
+      setProfile(res.data);
+      setBio(res.data.bio || '');
+      setWebsite(res.data.website || '');
+      const followerId = user?.id || user?._id;
+      setIsFollowing(
+        res.data.followers?.some(
+          f => (f.id || f._id || f) === followerId
+        )
+      );
+    } catch (err) {
+      toast.error('Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPosts = async () => {
+    try {
+      const res = await API.get(`/posts/user/${id}`);
+      setPosts(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be under 5MB');
+      return;
+    }
+    
+    setUploadingAvatar(true);
+    const toastId = toast.loading('Uploading photo...');
+    
+    try {
+      const form = new FormData();
+      form.append('profilePicture', file);
+      
+      const userId = user?.id || user?._id;
+      const res = await API.put(
+        `/users/${userId}`,
+        form,
+        { 
+          headers: { 
+            'Content-Type': 'multipart/form-data' 
+          } 
+        }
+      );
+      
+      setProfile(res.data);
+      dispatch({ 
+        type: 'UPDATE_USER', 
+        payload: { 
+          profilePicture: res.data.profilePicture 
+        } 
+      });
+      toast.success('Profile picture updated! 📸', 
+        { id: toastId });
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      toast.error(
+        err.response?.data?.message || 
+        'Upload failed. Try again.',
+        { id: toastId }
+      );
+    } finally {
+      setUploadingAvatar(false);
+      // Reset file input so same file can be 
+      // selected again
+      if (avatarRef.current) {
+        avatarRef.current.value = '';
+      }
+    }
+  };
+
+  const handleCoverUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image must be under 10MB');
+      return;
+    }
+    
+    setUploadingCover(true);
+    const toastId = toast.loading('Uploading cover...');
+    
+    try {
+      const form = new FormData();
+      form.append('coverPhoto', file);
+      
+      const userId = user?.id || user?._id;
+      const res = await API.put(
+        `/users/${userId}`,
+        form,
+        { 
+          headers: { 
+            'Content-Type': 'multipart/form-data' 
+          } 
+        }
+      );
+      
+      setProfile(res.data);
+      dispatch({ 
+        type: 'UPDATE_USER', 
+        payload: { 
+          coverPhoto: res.data.coverPhoto 
+        } 
+      });
+      toast.success('Cover photo updated! 🖼️', 
+        { id: toastId });
+    } catch (err) {
+      console.error('Cover upload error:', err);
+      toast.error(
+        err.response?.data?.message || 
+        'Upload failed. Try again.',
+        { id: toastId }
+      );
+    } finally {
+      setUploadingCover(false);
+      if (coverRef.current) {
+        coverRef.current.value = '';
+      }
+    }
+  };
+
+  const handleFollow = async () => {
+    try {
+      const res = await API.put(
+        `/users/${id}/follow`
+      );
+      setIsFollowing(res.data.following);
+      fetchProfile();
+      toast.success(
+        res.data.following ? 'Following! 👋' : 'Unfollowed'
+      );
+    } catch (err) {
+      toast.error('Failed');
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      const res = await API.put(
+        `/users/${user?.id || user?._id}`,
+        { bio, website }
+      );
+      setProfile(res.data);
+      dispatch({ 
+        type: 'UPDATE_USER', 
+        payload: { bio, website } 
+      });
       setEditing(false);
-      toast.success("Bio updated successfully!");
-      await load();
-    } catch {
-      toast.error("Failed to update bio");
+      toast.success('Profile updated! ✅');
+    } catch (err) {
+      toast.error('Update failed');
     }
   };
 
-  const followToggle = async () => {
+  const handleAIBio = async () => {
+    setAiLoading(true);
     try {
-      await API.put(`/users/${id}/follow`);
-      await load();
-    } catch {
-      toast.error("Failed to toggle follow status");
+      const res = await API.post('/ai/bio');
+      if (res.data.disabled) {
+        toast('✨ AI features coming soon!');
+        return;
+      }
+      setBio(res.data.bio);
+      toast.success('AI bio generated! ✨');
+    } catch (err) {
+      toast.error('AI not available yet');
+    } finally {
+      setAiLoading(false);
     }
   };
 
-  if (!profile) {
-    return (
-      <div className="card p-6">
-        <div className="skeleton h-40 w-full" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center 
+                    min-h-screen">
+      <div className="w-8 h-8 border-2 border-brand-500 
+                      border-t-transparent rounded-full 
+                      animate-spin"/>
+    </div>
+  );
 
-  const isSelf = uid === id;
+  if (!profile) return (
+    <div className="text-center py-20 text-[#71717a]">
+      User not found
+    </div>
+  );
 
   return (
-    <div className="animate-fade-in space-y-4">
-      <div className="card card-hover overflow-hidden p-0">
-        <div className="h-44 w-full bg-gradient-brand bg-cover bg-center" />
-        <div className="relative px-4 pb-4 pt-2">
-          <img
-            src={profile.profilePicture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(profile.username)}`}
-            alt=""
-            className="avatar absolute -top-12 left-4 h-24 w-24 border-4 border-dark-950"
+    <div className="max-w-3xl mx-auto px-4 py-6 
+                    animate-fade-in">
+      {/* Cover Photo */}
+      <div className="relative h-52 rounded-2xl 
+                      overflow-hidden mb-16 group">
+        {profile.coverPhoto ? (
+          <img 
+            src={profile.coverPhoto} 
+            className="w-full h-full object-cover"
           />
-          <div className="ml-0 mt-14 flex flex-col gap-3 border-b border-dark-700 pb-4 md:ml-28 md:mt-0 md:flex-row md:items-start md:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white">@{profile.username}</h1>
-              <p className="text-sm text-[#71717a]">{profile.website || "No website"}</p>
+        ) : (
+          <div className="w-full h-full 
+                          bg-gradient-to-br 
+                          from-brand-600 to-purple-600"/>
+        )}
+        
+        {/* Cover upload overlay - only own profile */}
+        {isOwn && (
+          <>
+            <div 
+              onClick={() => coverRef.current?.click()}
+              className="absolute inset-0 bg-black/40 
+                         opacity-0 group-hover:opacity-100
+                         transition-all duration-200 
+                         flex items-center justify-center 
+                         cursor-pointer">
+              {uploadingCover ? (
+                <div className="w-8 h-8 border-2 
+                                border-white 
+                                border-t-transparent 
+                                rounded-full animate-spin"/>
+              ) : (
+                <div className="text-white text-center">
+                  <div className="text-3xl mb-1">📷</div>
+                  <p className="text-sm font-medium">
+                    Change cover photo
+                  </p>
+                </div>
+              )}
             </div>
-            {isSelf ? (
-              <button type="button" onClick={() => setEditing((v) => !v)} className="btn-outline shrink-0 self-start text-sm">
-                Edit profile
-              </button>
-            ) : (
-              <button type="button" onClick={followToggle} className="btn-primary shrink-0 self-start text-sm">
-                Follow
-              </button>
+            <input 
+              ref={coverRef}
+              type="file" 
+              accept="image/*"
+              onChange={handleCoverUpload}
+              className="hidden"
+            />
+          </>
+        )}
+      </div>
+
+      {/* Avatar + Info Row */}
+      <div className="flex items-end justify-between 
+                      -mt-24 px-4 mb-6">
+        {/* Avatar */}
+        <div className="relative group">
+          <div className="w-24 h-24 rounded-full 
+                          border-4 border-[#050508] 
+                          overflow-hidden relative bg-[#050508]">
+            <img
+              src={profile.profilePicture || 
+                `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`}
+              className="w-full h-full object-cover"
+            />
+            {uploadingAvatar && (
+              <div className="absolute inset-0 
+                              bg-black/60 flex 
+                              items-center justify-center">
+                <div className="w-6 h-6 border-2 
+                                border-white 
+                                border-t-transparent 
+                                rounded-full animate-spin"/>
+              </div>
             )}
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-dark-700 p-3 text-center text-sm">
-            <div>
-              <p className="font-bold text-white">{posts.length}</p>
-              <p className="text-xs text-[#71717a]">Posts</p>
-            </div>
-            <div>
-              <p className="font-bold text-white">{Array.isArray(profile.followers) ? profile.followers.length : 0}</p>
-              <p className="text-xs text-[#71717a]">Followers</p>
-            </div>
-            <div>
-              <p className="font-bold text-white">{Array.isArray(profile.following) ? profile.following.length : 0}</p>
-              <p className="text-xs text-[#71717a]">Following</p>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-start gap-2">
-            <p className="flex-1 text-sm leading-relaxed text-zinc-200">{bio || "No bio yet."}</p>
-            {isSelf && (
-              <button type="button" onClick={async () => {
-                const loadToast = toast.loading("Generating AI bio...");
-                try {
-                  const res = await API.post("/ai/bio");
-                  if (res.data?.bio) {
-                    setBio(res.data.bio);
-                    toast.success("AI Bio generated!", { id: loadToast });
-                  } else {
-                    toast.error("AI bio unavailable", { id: loadToast });
-                  }
-                } catch {
-                  toast.error("AI bio unavailable", { id: loadToast });
-                }
-              }} className="btn-primary px-3 py-1.5 text-xs">
-                AI Bio
+          {/* Avatar upload button - only own profile */}
+          {isOwn && (
+            <>
+              <button
+                onClick={() => avatarRef.current?.click()}
+                className="absolute bottom-0 right-0 
+                           w-8 h-8 bg-brand-500 
+                           hover:bg-brand-600
+                           rounded-full flex items-center 
+                           justify-center text-white 
+                           text-sm transition-all
+                           border-2 border-[#050508]">
+                📷
               </button>
-            )}
-          </div>
+              <input
+                ref={avatarRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+            </>
+          )}
+        </div>
 
-          {isSelf && editing && (
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <input value={bio} onChange={(e) => setBio(e.target.value)} className="input-field flex-1" maxLength={150} />
-              <button type="button" onClick={saveBio} className="btn-primary shrink-0">
-                Save
+        {/* Action buttons */}
+        <div className="flex gap-2 mb-2">
+          {isOwn ? (
+            <button
+              onClick={() => setEditing(!editing)}
+              className="btn-outline text-sm">
+              {editing ? 'Cancel' : 'Edit profile'}
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => navigate(`/messages/${id}`)}
+                className="btn-outline text-sm">
+                💬 Message
               </button>
-            </div>
+              <button
+                onClick={handleFollow}
+                className={isFollowing 
+                  ? 'btn-outline text-sm' 
+                  : 'btn-primary text-sm'}>
+                {isFollowing ? 'Following' : 'Follow'}
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      <div className="card p-4">
-        <div className="mb-4 flex flex-wrap gap-2">
-          {[
-            { id: "posts", label: "Posts" },
-            { id: "videos", label: "Videos" },
-            { id: "liked", label: "Liked" },
-          ].map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                tab === t.id ? "bg-gradient-brand text-white shadow-glow-sm" : "btn-ghost border border-transparent"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+      {/* Profile Info */}
+      <div className="px-4 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="text-xl font-bold text-white">
+            {profile.username}
+          </h2>
+          {profile.isVerified && (
+            <span className="text-brand-400 text-lg">✓</span>
+          )}
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {visiblePosts.map((p) => (
-            <div key={p.id ?? p._id} className="overflow-hidden rounded-xl border border-dark-700 bg-dark-800">
-              {p.mediaType === "video" && p.video ? (
-                <video src={p.video} className="h-36 w-full object-cover" muted playsInline />
-              ) : (
-                <img
-                  src={p.image || `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(p.id || "p")}`}
-                  alt=""
-                  className="h-36 w-full object-cover"
-                />
-              )}
+        <p className="text-[#71717a] text-sm mb-3">
+          @{profile.username}
+        </p>
+
+        {/* Stats */}
+        <div className="flex gap-6 mb-4">
+          {[
+            { label: 'Posts', value: posts.length },
+            { label: 'Followers', 
+              value: profile.followers?.length || 0 },
+            { label: 'Following', 
+              value: profile.following?.length || 0 }
+          ].map(stat => (
+            <div key={stat.label}>
+              <span className="font-bold text-white">
+                {stat.value}
+              </span>{' '}
+              <span className="text-[#71717a] text-sm">
+                {stat.label}
+              </span>
             </div>
           ))}
         </div>
+
+        {/* Bio & Website */}
+        {editing ? (
+          <div className="space-y-3 mt-4">
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Write a bio..."
+              className="w-full bg-dark-700 border border-dark-600 
+                         rounded-xl p-3 text-white 
+                         focus:border-brand-500 outline-none
+                         resize-none h-24"
+            />
+            <input
+              type="url"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="Website URL"
+              className="w-full bg-dark-700 border border-dark-600 
+                         rounded-xl p-3 text-white 
+                         focus:border-brand-500 outline-none"
+            />
+            <div className="flex gap-2">
+              <button 
+                onClick={handleSaveProfile}
+                className="btn-primary flex-1">
+                Save Changes
+              </button>
+              <button 
+                onClick={handleAIBio}
+                disabled={aiLoading}
+                className="btn-outline flex-1">
+                {aiLoading ? 'Generating...' : '✨ Magic Bio'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {profile.bio && (
+              <p className="text-zinc-200 text-sm whitespace-pre-wrap">
+                {profile.bio}
+              </p>
+            )}
+            {profile.website && (
+              <a 
+                href={profile.website} 
+                target="_blank" 
+                rel="noreferrer"
+                className="text-brand-400 text-sm hover:underline flex items-center gap-1">
+                🔗 {profile.website.replace(/^https?:\/\//, '')}
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-dark-700 mb-6">
+        {['posts', 'media', 'likes'].map(t => (
+          <button
+            key={t}
+            onClick={() => setActiveTab(t)}
+            className={`flex-1 py-3 text-sm font-medium capitalize transition-all
+              ${activeTab === t 
+                ? 'text-brand-400 border-b-2 border-brand-400' 
+                : 'text-[#71717a] hover:text-white'}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Posts Grid/List */}
+      <div className="space-y-4">
+        {posts.length === 0 ? (
+          <div className="text-center py-10 text-[#71717a]">
+            No posts yet
+          </div>
+        ) : (
+          activeTab === 'posts' ? (
+            posts.map(post => (
+              <PostCard 
+                key={post.id || post._id} 
+                post={post} 
+                onUpdate={fetchPosts} 
+              />
+            ))
+          ) : (
+            <div className="grid grid-cols-3 gap-1">
+              {posts
+                .filter(p => activeTab === 'likes' ? (p.likes || []).includes(user?.id || user?._id) : (p.image || p.video))
+                .map(post => (
+                <div key={post.id || post._id} className="aspect-square bg-dark-800">
+                  {post.mediaType === 'video' ? (
+                    <video src={post.video} className="w-full h-full object-cover" />
+                  ) : (
+                    post.image && <img src={post.image} className="w-full h-full object-cover" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        )}
       </div>
     </div>
   );

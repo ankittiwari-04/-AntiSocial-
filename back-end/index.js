@@ -15,6 +15,7 @@ import messageRoutes from './routes/messages.js';
 import notificationRoutes from './routes/notifications.js';
 import aiRoutes from './routes/ai.js';
 import paymentRoutes from './routes/payments.js';
+import cloudinary from './config/cloudinary.js';
 
 dotenv.config();
 
@@ -78,6 +79,29 @@ app.use('/api/payments', paymentRoutes);
 socketHandler(io);
 
 app.get('/', (req, res) => res.json({ status: 'AntiSocial API running' }));
+
+app.get('/test-cloudinary', async (req, res) => {
+  try {
+    const result = await cloudinary.api.ping();
+    res.json({ 
+      success: true, 
+      cloudinary: result,
+      config: {
+        cloud_name: 
+          process.env.CLOUDINARY_CLOUD_NAME,
+        hasApiKey: 
+          !!process.env.CLOUDINARY_API_KEY,
+        hasApiSecret: 
+          !!process.env.CLOUDINARY_API_SECRET,
+      }
+    });
+  } catch (err) {
+    res.json({ 
+      success: false, 
+      error: err.message 
+    });
+  }
+});
 
 app.get('/test-db', async (req, res) => {
   try {

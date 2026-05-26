@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { and, eq, ilike, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { follows, notifications, users } from '../models/schema.js';
@@ -37,18 +37,64 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id', verifyToken, upload.fields([{ name: 'profilePicture' }, { name: 'coverPhoto' }]), async (req, res) => {
+router.put('/:id', verifyToken, 
+  upload.fields([
+    { name: 'profilePicture', maxCount: 1 },
+    { name: 'coverPhoto', maxCount: 1 }
+  ]), 
+  async (req, res) => {
   try {
-    if (req.user.id !== req.params.id) return res.status(403).json({ message: 'Not authorized' });
+    if (req.user.id !== req.params.id) {
+      return res.status(403).json({ 
+        message: 'Not authorized' 
+      });
+    }
 
-    const updates = { ...req.body, updatedAt: new Date() };
-    if (req.files?.profilePicture) updates.profilePicture = req.files.profilePicture[0].path;
-    if (req.files?.coverPhoto) updates.coverPhoto = req.files.coverPhoto[0].path;
+    const updates = {};
+    
+    // Handle text fields
+    if (req.body.bio !== undefined) 
+      updates.bio = req.body.bio;
+    if (req.body.website !== undefined) 
+      updates.website = req.body.website;
+    if (req.body.username !== undefined) 
+      updates.username = req.body.username;
 
-    const [updated] = await db.update(users).set(updates).where(eq(users.id, req.params.id)).returning();
-    return res.status(200).json(updated);
+    // Handle file uploads from Cloudinary
+    if (req.files?.profilePicture?.[0]) {
+      updates.profilePicture = 
+        req.files.profilePicture[0].path;
+      console.log('Profile pic uploaded:', 
+        updates.profilePicture);
+    }
+    if (req.files?.coverPhoto?.[0]) {
+      updates.coverPhoto = 
+        req.files.coverPhoto[0].path;
+      console.log('Cover photo uploaded:', 
+        updates.coverPhoto);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ 
+        message: 'No updates provided' 
+      });
+    }
+
+    const [updated] = await db
+      .update(users)
+      .set({ 
+        ...updates, 
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, req.params.id))
+      .returning();
+
+    const { password: _, ...userData } = updated;
+    res.status(200).json(userData);
+    
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    console.error('Update user error:', err);
+    res.status(500).json({ message: err.message });
   }
 });
 
